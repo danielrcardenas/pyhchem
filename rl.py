@@ -198,4 +198,4 @@ def run_single_trial(agent_program, mdp):
         next_action = agent_program(percept)
         if next_action is None:
             break
-current_state = take_single_action(mdp, current_state, next_action)
+        current_state = take_single_action(mdp, current_state, next_action)

@@ -8,7 +8,6 @@ import sys
 import time
 
 import numpy as np
-import powerlaw
 import pygame
 
 
@@ -184,7 +183,7 @@ class HChemRule:
             L0, l0, L1, l1, lbnd = self.parse_expr(lhs.strip())
             R0, r0, R1, r1, rbnd = self.parse_expr(rhs.strip())
         except Exception as e:
-            print "Error parsing line:", line
+            print("Error parsing line:", line)
             exit()
         if L0 in self.wildcards and L1 in self.wildcards:
             if L0 == L1:
@@ -333,7 +332,7 @@ class HChem:
 
         # Initialize types
         self.types = np.zeros(n, dtype=int)
-        for k in xrange(self.n):
+        for k in range(self.n):
             p = np.random.uniform(0, 1)
             q = 0
             for (t, r) in self.rule.fill:
@@ -342,12 +341,12 @@ class HChem:
                     self.types[k] = self.rule.get_index(t)
                     break
         self.stypes = np.zeros(n, dtype=object)  # n number of particles
-        for k in xrange(self.n):
+        for k in range(self.n):
             self.stypes[k] = self.rule.get_name(self.types[k])
 
         # self.bonds[i] == list of indexes of particles which is bound to i.
         self.bonds = np.zeros(n, dtype=object)
-        for i in xrange(n): self.bonds[i] = []
+        for i in range(n): self.bonds[i] = []
 
         # Initialize buckets for compute_collision detection
         self.bucket_size = bucket_size
@@ -363,23 +362,23 @@ class HChem:
             self.vel = np.zeros((self.n, 2))
             self.vel[:, 0] = v0 * np.cos(direction)
             self.vel[:, 1] = v0 * np.sin(direction)
-            print "Randomizing velocites. If want stored velocities, reload the particles file."
+            print("Randomizing velocites. If want stored velocities, reload the particles file.")
 
     def bucket_index(self, x):
         return (min(max(int(x[0] / self.bucket_size), 0), self.nbx - 1),
                 min(max(int(x[1] / self.bucket_size), 0), self.nby - 1))
 
     def init_bucket(self):
-        for i in xrange(self.nbx):
-            for j in xrange(self.nby):
+        for i in range(self.nbx):
+            for j in range(self.nby):
                 self.buckets[i, j] = []
-        for k in xrange(self.n):
+        for k in range(self.n):
             i, j = self.bucket_index(self.pos[k, :])
             self.buckets[i, j].append(k)
 
     def add_impulse_from_walls(self):
         r = self.r
-        for k in xrange(self.n):
+        for k in range(self.n):
             x = self.pos[k, 0]
             y = self.pos[k, 1]
             vx = self.vel[k, 0]
@@ -402,17 +401,17 @@ class HChem:
                     p = r[3]
                     if np.random.uniform(0, 1) < p:
                         if self.show_applied_rules:
-                            print "apply:",
-                            print self.rule.get_name(self.types[k]),
-                            print "-",
-                            print self.rule.get_name(self.types[l]),
-                            print " -> ",
-                            print self.rule.get_name(r[0]),
+                            print("apply:", )
+                            print(self.rule.get_name(self.types[k]), )
+                            print("-", )
+                            print(self.rule.get_name(self.types[l]), )
+                            print(" -> ", )
+                            print(self.rule.get_name(r[0]), )
                             if r[2]:
-                                print "-",
+                                print("-", )
                             else:
-                                print " ",
-                            print self.rule.get_name(r[1])
+                                print(" ", )
+                            print(self.rule.get_name(r[1]))
                         self.types[k] = r[0]
                         self.types[l] = r[1]
                         if not r[2]:
@@ -431,17 +430,17 @@ class HChem:
                     p = r[3]
                     if np.random.uniform(0, 1) < p:
                         if self.show_applied_rules:
-                            print "apply:",
-                            print self.rule.get_name(self.types[k]),
-                            print " ",
-                            print self.rule.get_name(self.types[l]),
-                            print " -> ",
-                            print self.rule.get_name(r[0]),
+                            print("apply:", )
+                            print(self.rule.get_name(self.types[k]), )
+                            print(" ", )
+                            print(self.rule.get_name(self.types[l]), )
+                            print(" -> ", )
+                            print(self.rule.get_name(r[0]), )
                             if r[2]:
-                                print "-",
+                                print("-", )
                             else:
-                                print " ",
-                            print self.rule.get_name(r[1])
+                                print(" ", )
+                            print(self.rule.get_name(r[1]))
                         self.types[k] = r[0]
                         self.types[l] = r[1]
                         if r[2]:
@@ -487,7 +486,7 @@ class HChem:
         r = self.r
 
         # add impulse between unbound pairs
-        for k in xrange(self.n):
+        for k in range(self.n):
             i, j = self.bucket_index(self.pos[k, :])
             self.add_impulse_between_particles_sub(k, i - 1, j)
             self.add_impulse_between_particles_sub(k, i - 1, j - 1)
@@ -501,7 +500,7 @@ class HChem:
 
     def add_impulse_between_bound_particles(self):
         # add impulse between bound pairs
-        for k in xrange(self.n):
+        for k in range(self.n):
             for l in self.bonds[k]:
                 if k >= l: continue
                 rx = self.pos[k, :] - self.pos[l, :]
@@ -542,7 +541,7 @@ class HChem:
                 f.write("\n")
                 f.write(repr(self.dt));
                 f.write("\n")
-                for k in xrange(self.n):
+                for k in range(self.n):
                     f.write(self.stypes[k]);
                     f.write(",")
                     f.write(repr(self.pos[k, 0]));
@@ -553,12 +552,12 @@ class HChem:
                     f.write(",")
                     f.write(repr(self.vel[k, 1]));
                     f.write("\n")
-                for k in xrange(self.n):
+                for k in range(self.n):
                     bonds = " ".join(map(str, self.bonds[k]))
                     f.write(bonds);
                     f.write("\n")
         except Exception as e:
-            print "Error:", str(e)
+            print("Error:", str(e))
 
     def load_particles(self, fname):
         try:
@@ -569,16 +568,16 @@ class HChem:
                 vel = []
                 types = []
                 bonds = []
-                for k in xrange(n):
+                for k in range(n):
                     line = f.readline()
                     t, p0, p1, v0, v1 = line.strip().split(",")
                     pos.append((float(p0), float(p1)))
                     vel.append((float(v0), float(v1)))
                     if not self.rule.is_valid_type(t):
-                        print "Unknown type on line:", line
+                        print("Unknown type on line:", line)
                         return
                     types.append(t)
-                for k in xrange(n):
+                for k in range(n):
                     bonds.append(map(int, f.readline().strip().split()))
                 self.n = n
                 self.dt = dt
@@ -589,7 +588,7 @@ class HChem:
                 self.bonds = bonds
 
         except Exception as e:
-            print "Error:", str(e)
+            print("Error:", str(e))
 
     def load(self, fname, type):
         if type == "particles":
@@ -619,15 +618,15 @@ class HChem:
                 if len(current_chain) > 1:
                     chain_lengths.append(len(current_chain))
 
-
         return chain_lengths
 
-    def look_deep_chain(self, particle, current_chain = []):
+    def look_deep_chain(self, particle, current_chain=[]):
         current_chain.append(particle)
         for pair in self.bonds[particle]:
             if pair not in current_chain:
                 current_chain = self.look_deep_chain(pair, current_chain)
         return current_chain
+
 
 class HChemViewer:
     RED = (255, 0, 0)
@@ -671,7 +670,7 @@ class HChemViewer:
         self.prev_lclick = time.time()
 
     def get_clicked(self):
-        for k in xrange(self.sim.n):
+        for k in range(self.sim.n):
             d2 = np.sum((self.sim.pos[k, :] - pygame.mouse.get_pos()) ** 2)
             if d2 < self.sim.r ** 2:
                 return k
@@ -791,12 +790,12 @@ class HChemViewer:
 
             screen.fill(self.WHITE)
             # Draw particles
-            for k in xrange(n):
+            for k in range(n):
                 pygame.draw.circle(screen, sim.rule.colors[sim.types[k]],
                                    (int(pos[k, 0]), int(pos[k, 1])), r, 1)
 
             if self.display_types:
-                for k in xrange(sim.n):
+                for k in range(sim.n):
                     t = sim.rule.get_name(sim.types[k])
                     t = t[1:]  # DEBUG: just draw the state
                     text = self.font.render(t, False, self.BLACK)
@@ -806,29 +805,28 @@ class HChemViewer:
                     self.screen.blit(text, rect)
 
             # Draw bonds
-            for k in xrange(n):
+            for k in range(n):
                 for l in sim.bonds[k]:
                     if k >= l: continue
                     pygame.draw.line(screen, self.BLACK, pos[k, :], pos[l, :])
             y = 10
-            freq = {}
+
             # update chain longs
-            #if iteration * sim.dt % 10 == 0 :
+            # if iteration * sim.dt % 10 == 0 :
             chains = sim.calculate_chain_lengths()
             unique, counts = np.unique(chains, return_counts=True)
             freq = dict(zip(unique, counts))
 
-            results = powerlaw.Fit(chains)
-            #print(results.power_law.alpha)
-            #print(results.power_law.xmin)
-            #R, p = results.distribution_compare('power_law', 'lognormal')
+            # results = powerlaw.Fit(chains)
+            # print(results.power_law.alpha)
+            # print(results.power_law.xmin)
+            # R, p = results.distribution_compare('power_law', 'lognormal')
             text = self.font.render("chains: " + str(freq), False, self.BLUE)
             self.screen.blit(text, (10, y + 2 * self.fontsize))
             # Other info
             if self.binding:
                 pygame.draw.line(screen, self.BLACK,
                                  pos[self.which_dragged, :], pygame.mouse.get_pos())
-
 
             for i in self.info:
                 self.screen.blit(i, (10, y))
@@ -843,10 +841,16 @@ class HChemViewer:
                 False, self.BLUE)
             self.screen.blit(text, (10, y + self.fontsize))
 
-
-
             self.check_event()
             pygame.display.update()
+
+
+from mdp import *
+
+
+class ChemMDP(MDP):
+    def init(self):
+        raise NotImplementedError
 
 
 if __name__ == '__main__':
@@ -856,6 +860,6 @@ if __name__ == '__main__':
     elif len(sys.argv) == 3:
         sim = HChem(sys.argv[1], sys.argv[2])
     else:
-        print "Usage: python", sys.argv[0], "<rules_filename> [optional: particles_filename]"
+        print("Usage: python", sys.argv[0], "<rules_filename> [optional: particles_filename]")
         exit()
     HChemViewer(sim).loop()
