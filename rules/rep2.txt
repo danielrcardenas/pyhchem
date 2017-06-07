@@ -4,7 +4,7 @@ type: A
 
 # Initial condition
 number of particles: 100
-state max: 20
+state max: 100
 fill: A14 0.1, A11 0.1, A0 0.1, A4 0.1, A2 0.2, A5 0.2, A3 0.1
 
 # 1,0 : bases

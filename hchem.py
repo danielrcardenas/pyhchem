@@ -8,7 +8,11 @@ import sys
 import time
 
 import numpy as np
+import powerlaw
 import pygame
+
+from actchem import *
+from rl import *
 
 
 class HChemRule:
@@ -301,15 +305,16 @@ class HChem:
     # k   : strength of bonds
     # w,h : width and height of the universe
     # seed: random seed
-    def __init__(self, rules_filename, particles_filename=None, n=1000, r=10, v0=None, dt=0.1,
+    def __init__(self, rules, particles_filename=None, n=1000, r=10, v0=None, dt=0.1,
                  width=1200, height=700, bucket_size=None, seed=None):
-        self.rule = HChemRule(rules_filename)
+        self.rule = rules
         if seed: np.random.seed(seed)
         if v0 == None: v0 = r
         if bucket_size == None: bucket_size = 2 * r
 
         self.n = n
-        if self.rule.num: self.n = self.rule.num
+        if self.rule.num is not None:
+            self.n = self.rule.num
         self.r = r
         self.dt = dt
         self.w = width
@@ -635,7 +640,7 @@ class HChemViewer:
     BLACK = (0, 0, 0)
     INFO = [
         # "(P) play/pause, (F) stepwise, (R) record, (Q) quit, (T) show/hide particle types, (up) Speed up, (down) Speed down",
-        # "(drag) move particle, (shift + drag) bind/unbind particles, (double click) change type and state of a particle"
+        # "(drag) move particle, (shift + drag) bind/unbind particles, (double click) chanppppppppsdpsdfospdfpsfopppppppppppppppolerwqertyuilokpppppppge type and state of a particle"
     ]
 
     def __init__(self, sim, w=None, h=None):
@@ -644,9 +649,9 @@ class HChemViewer:
 
         self.sim = sim
         pygame.init()
-        self.screen = pygame.display.set_mode((w, h)
-                                              # , pygame.DOUBLEBUF | pygame.FULLSCREEN | pygame.HWSURFACE
-                                              )
+        self.screen = pygame.display.set_mode((w, h),
+                                               pygame.DOUBLEBUF) # | pygame.FULLSCREEN | pygame.HWSURFACE
+                                              #)
         pygame.display.set_caption("Artificial Chemistry - Chain Simulator")
         self.fontsize = 18
         self.font = pygame.font.SysFont(None, self.fontsize)
@@ -660,7 +665,7 @@ class HChemViewer:
         # For events
         self.record = False
         self.shift = False
-        self.play = False
+        self.play = True
         self.stepwise = False
         self.dragged = False
         self.which_dragged = None
@@ -769,11 +774,12 @@ class HChemViewer:
             elif event.type == pygame.QUIT:
                 sys.exit()
 
-    def loop(self):
+    def loop(self, iterations=float('inf')):
         iteration = 0
         screen = self.screen
-        while True:
-            sim = self.sim
+        sim = self.sim
+        while iteration * sim.dt < iterations:
+
             n = sim.n
             r = sim.r
             if self.play:
@@ -817,12 +823,14 @@ class HChemViewer:
             unique, counts = np.unique(chains, return_counts=True)
             freq = dict(zip(unique, counts))
 
-            # results = powerlaw.Fit(chains)
+            results = powerlaw.Fit(chains)
             # print(results.power_law.alpha)
             # print(results.power_law.xmin)
-            # R, p = results.distribution_compare('power_law', 'lognormal')
+            R, p = results.distribution_compare('power_law', 'lognormal')
             text = self.font.render("chains: " + str(freq), False, self.BLUE)
             self.screen.blit(text, (10, y + 2 * self.fontsize))
+            #text = self.font.render("Ratio: " + str(R) + " P-value: " + str(p), False, self.BLUE)
+            #self.screen.blit(text, (10, y + 3 * self.fontsize))
             # Other info
             if self.binding:
                 pygame.draw.line(screen, self.BLACK,
@@ -845,21 +853,58 @@ class HChemViewer:
             pygame.display.update()
 
 
-from mdp import *
-
-
 class ChemMDP(MDP):
-    def init(self):
-        raise NotImplementedError
+    def __init__(self, terminals, state, rules_file, gamma=.9):
+        MDP.__init__(self, state , actlist=chem_actions,
+                     terminals=terminals, gamma=gamma)
+        self.rules = HChemRule(rules_file)
+        self.reward = -0.04
+        self.sim_steps = 10
 
+    def R(self, state):
+        "Return a numeric reward for this state."
+        sim = HChem(self.rules, state)
+        chain_lenghts = sim.calculate_chain_lengths()
+        results = powerlaw.Fit(chain_lenghts)
+        R, p = results.distribution_compare('power_law', 'lognormal')
+        reward = self.reward
+        if R > 0:
+            reward = p
+        return reward
+
+    def T(self, state, action):
+        if action is None:
+            return [(0.0, state)]
+        else:
+            return [(0.7, self.go(state, action)),
+                    (0.1, self.go(state, add_bond_rule())),
+                    (0.1, self.go(state, add_unbond_rule())),
+                    (0.1, self.go(state, add_particles()))]
+
+    def go(self, state, action):
+        """Return the state that results from going in this action."""
+        rules = self.rules
+        # TODO: apply the action and apply it
+        sim = HChem(rules, state)  # Ejecutar aqui el modelo y medir sim loop aqui
+        viewer = HChemViewer(sim)
+        viewer.loop(self.sim_steps)
+        state1 = r"particles/exp1" + str(time.time()) + ".dat"
+        sim.save(state1, "particles")
+        return state1
 
 if __name__ == '__main__':
 
-    if len(sys.argv) == 2:
-        sim = HChem(sys.argv[1])
-    elif len(sys.argv) == 3:
-        sim = HChem(sys.argv[1], sys.argv[2])
+    '''elif len(sys.argv) == 3:
+            sim = HChem(sys.argv[1], sys.argv[2])'''
+    #HChemViewer(HChem(HChemRule(sys.argv[1]), sys.argv[2])).loop(5)
+    if len(sys.argv) == 3:
+        chemMDP_env = ChemMDP([0.05], sys.argv[2], sys.argv[1])  # TODO: Definir nodo terminal # el nodo terminal es que el p value sea menor a 0.05 para aceptarlo
     else:
         print("Usage: python", sys.argv[0], "<rules_filename> [optional: particles_filename]")
         exit()
-    HChemViewer(sim).loop()
+
+    #HChemViewer(sim2).loop(10)
+    q_agent = QLearningAgent(chemMDP_env, Ne=5, Rplus=2,
+                             alpha=lambda n: 60. / (59 + n))  # TODO: Definir los parametros de esta funcion
+    for i in range(200):
+        run_single_trial(q_agent, chemMDP_env)
