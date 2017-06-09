@@ -29,11 +29,11 @@ class MDP:
         if not (0 <= gamma < 1):
             raise ValueError("An MDP must have 0 <= gamma < 1")
         self.gamma = gamma
-        self.states = set()
+        self.states =set()
         self.reward = {}
 
     def R(self, state):
-        "Return a numeric reward for this state."
+        """"Return a numeric reward for this state."""
         return self.reward[state]
 
     def T(self, state, action):
@@ -45,10 +45,15 @@ class MDP:
         """Set of actions that can be performed in this state.  By default, a
         fixed list of actions, except for terminal states. Override this
         method if you need to specialize by state."""
+        #if state in self.terminals:
+            #return [None]
+       # else:
+            #return self.actlist
+        """ We modified this method in ordes to diferenciate the final state from the accepted reward"""
+
         if state in self.terminals:
             return [None]
-        else:
-            return self.actlist
+        return self.actlist
 
 
 class GridMDP(MDP):

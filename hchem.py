@@ -12,6 +12,7 @@ import powerlaw
 import pygame
 
 from actchem import *
+from particleChem import *
 from rl import *
 
 
@@ -307,7 +308,7 @@ class HChem:
     # seed: random seed
     def __init__(self, rules, particles_filename=None, n=1000, r=10, v0=None, dt=0.1,
                  width=1200, height=700, bucket_size=None, seed=None):
-        self.rule = rules
+        self.rule = HChemRule(rules)
         if seed: np.random.seed(seed)
         if v0 == None: v0 = r
         if bucket_size == None: bucket_size = 2 * r
@@ -319,14 +320,25 @@ class HChem:
         self.dt = dt
         self.w = width
         self.h = height
-        self.speed = 10
+        self.speed = 1
         self.show_applied_rules = False
         self.randomize_rule_order = False
+        self.state_max = self.rule.state_max
+        self.R = 0  # The R hipotesis probe
+        self.p = 0  # the p-value of the statistical distribution
 
         # Initialize positions of particles
         self.pos = np.zeros((n, 2))
         self.pos[:, 0] = np.random.uniform(r, width - r, n)
         self.pos[:, 1] = np.random.uniform(r, height - r, n)
+
+        ##Create a set of q agents per state
+
+
+        self.q_agents = [QLearningAgent(ParticleTypeMDP(self, i), Ne=5, Rplus=2,
+                                        alpha=lambda n: 60. / (59 + n)) for i in range(self.n)]
+        self.visited_agents = []
+        self.chain_lengths = None
 
         # Initialize velocities of particles
         # N.B. this discards the velocities for particles files loaded on the command line
@@ -396,64 +408,110 @@ class HChem:
                 self.vel[k, 1] += -2 * self.vel[k, 1]
 
     def update_state_of_particle_pair(self, k, l):
+        mdp = self.q_agents[k].mdp
+        mdp.other_index = l
+        run_single_trial(self.q_agents[k], mdp)
+        #run_single_trial(self.q_agents[l], ParticleMDP(self, l,k))
         if l in self.bonds[k]:
-            # bound pair
-            rules = self.rule.check(self.types[k], self.types[l], True)
-            if rules:
-                if self.randomize_rule_order:
-                    np.random.shuffle(rules)
-                for r in rules:
-                    p = r[3]
-                    if np.random.uniform(0, 1) < p:
-                        if self.show_applied_rules:
-                            print("apply:", )
-                            print(self.rule.get_name(self.types[k]), )
-                            print("-", )
-                            print(self.rule.get_name(self.types[l]), )
-                            print(" -> ", )
-                            print(self.rule.get_name(r[0]), )
-                            if r[2]:
-                                print("-", )
-                            else:
-                                print(" ", )
-                            print(self.rule.get_name(r[1]))
-                        self.types[k] = r[0]
-                        self.types[l] = r[1]
-                        if not r[2]:
-                            self.bonds[k].remove(l)
-                            self.bonds[l].remove(k)
-                            return False
-                        return True
             return True
-        else:
-            # unbound pair
-            rules = self.rule.check(self.types[k], self.types[l], False)
-            if rules:
-                if self.randomize_rule_order:
-                    np.random.shuffle(rules)
-                for r in rules:
-                    p = r[3]
-                    if np.random.uniform(0, 1) < p:
-                        if self.show_applied_rules:
-                            print("apply:", )
-                            print(self.rule.get_name(self.types[k]), )
-                            print(" ", )
-                            print(self.rule.get_name(self.types[l]), )
-                            print(" -> ", )
-                            print(self.rule.get_name(r[0]), )
-                            if r[2]:
-                                print("-", )
-                            else:
-                                print(" ", )
-                            print(self.rule.get_name(r[1]))
-                        self.types[k] = r[0]
-                        self.types[l] = r[1]
-                        if r[2]:
-                            self.bonds[k].append(l)
-                            self.bonds[l].append(k)
-                            return True
-                        return False
-            return False
+        return False
+        # is_bond =False
+        #
+        # if l in self.bonds[k]:
+        #     is_bond = True
+        # type_k = self.types[k]
+        # if not self.visited_agents[type_k]:
+        #     mdp = self.q_agents[type_k].mdp
+        #     mdp.other_index = l
+        #     self.visited_agents[type_k] = True
+        #     run_single_trial(self.q_agents[type_k], mdp)
+        #
+        # type_l = self.types[l]
+        # if not self.visited_agents[type_l]:
+        #     mdp = self.q_agents[type_l].mdp
+        #     mdp.other_index = k
+        #     self.visited_agents[type_l] = True
+        #     run_single_trial(self.q_agents[type_l], mdp)
+        # LL0 = type_k
+        # LL1 = type_l
+        # RR0 = type_k
+        # RR1 = type_l
+        # if l in self.bonds[k] and not is_bond:
+        #     if not (LL0, LL1) in self.ruleb:
+        #         self.ruleb[(LL0, LL1)] = []
+        #         if LL0 != LL1:
+        #             self.ruleb[(LL1, LL0)] = []
+        #     self.ruleb[(LL0, LL1)].append((RR0, RR1, rbnd, 1))
+        #     if LL0 != LL1:
+        #         self.ruleb[(LL1, LL0)].append((RR1, RR0, rbnd, 1))
+        # else:
+        #     if not (LL0, LL1) in self.ruleu:
+        #         self.ruleu[(LL0, LL1)] = []
+        #         if LL0 != LL1:
+        #             self.ruleu[(LL1, LL0)] = []
+        #     self.ruleu[(LL0, LL1)].append((RR0, RR1, rbnd, prob))
+        #     if LL0 != LL1:
+        #         self.ruleu[(LL1, LL0)].append((RR1, RR0, rbnd, prob))
+        # if l in self.bonds[k]:
+        #     # bound pair
+        #     rules = self.rule.check(self.types[k], self.types[l], True)
+        #
+        #     if rules:
+        #         if self.randomize_rule_order:
+        #             np.random.shuffle(rules)
+        #         for r in rules:
+        #             p = r[3]
+        #             if np.random.uniform(0, 1) < p:
+        #                 if self.show_applied_rules:
+        #                     print("apply:", )
+        #                     print(self.rule.get_name(
+        #                         self.types[k]), )  #### TODO: Ingresar aqui el q learning por cada accion
+        #                     print("-", )
+        #                     print(self.rule.get_name(self.types[l]), )
+        #                     print(" -> ", )
+        #                     print(self.rule.get_name(r[0]), )
+        #                     if r[2]:
+        #                         print("-", )
+        #                     else:
+        #                         print(" ", )
+        #                     print(self.rule.get_name(r[1]))
+        #                 self.types[k] = r[0]
+        #                 self.types[l] = r[1]
+        #                 if not r[2]:
+        #                     self.bonds[k].remove(l)
+        #                     self.bonds[l].remove(k)
+        #                     return False
+        #                 return True
+        #     return True
+        # else:
+        #     # unbound pair
+        #     rules = self.rule.check(self.types[k], self.types[l], False)
+        #     if rules:
+        #         if self.randomize_rule_order:
+        #             np.random.shuffle(rules)
+        #         for r in rules:
+        #             p = r[3]
+        #             if np.random.uniform(0, 1) < p:
+        #                 if self.show_applied_rules:
+        #                     print("apply:", )
+        #                     print(self.rule.get_name(self.types[k]), )
+        #                     print(" ", )
+        #                     print(self.rule.get_name(self.types[l]), )
+        #                     print(" -> ", )
+        #                     print(self.rule.get_name(r[0]), )
+        #                     if r[2]:
+        #                         print("-", )
+        #                     else:
+        #                         print(" ", )
+        #                     print(self.rule.get_name(r[1]))
+        #                 self.types[k] = r[0]
+        #                 self.types[l] = r[1]
+        #                 if r[2]:
+        #                     self.bonds[k].append(l)
+        #                     self.bonds[l].append(k)
+        #                     return True
+        #                 return False
+        #     return False
 
     def add_impulse_between_unbound_pair(self, k, l, rx, rv, d2):
         if self.update_state_of_particle_pair(k, l):
@@ -528,7 +586,14 @@ class HChem:
     def update(self):
         # Update position
         for k in range(self.speed):
+            #self.visited_agents = [False] * self.state_max
             self.compute_impulse()
+            self.chain_lengths = self.calculate_chain_lengths()
+            unique, counts = np.unique(self.chain_lengths, return_counts=True)
+            freq = dict(zip(unique, counts))
+            if self.chain_lengths is not None and len(freq) > 2:
+                results = powerlaw.Fit(self.chain_lengths)
+                self.R, self.p = results.distribution_compare('power_law', 'lognormal')
 
     def total_energy(self):
         return np.sum(self.vel * self.vel) / 2
@@ -650,8 +715,8 @@ class HChemViewer:
         self.sim = sim
         pygame.init()
         self.screen = pygame.display.set_mode((w, h),
-                                               pygame.DOUBLEBUF) # | pygame.FULLSCREEN | pygame.HWSURFACE
-                                              #)
+                                              pygame.DOUBLEBUF)  # | pygame.FULLSCREEN | pygame.HWSURFACE
+        # )
         pygame.display.set_caption("Artificial Chemistry - Chain Simulator")
         self.fontsize = 18
         self.font = pygame.font.SysFont(None, self.fontsize)
@@ -819,18 +884,17 @@ class HChemViewer:
 
             # update chain longs
             # if iteration * sim.dt % 10 == 0 :
-            chains = sim.calculate_chain_lengths()
-            unique, counts = np.unique(chains, return_counts=True)
-            freq = dict(zip(unique, counts))
+            #chains = sim.calculate_chain_lengths()
 
-            results = powerlaw.Fit(chains)
+
+            # results = powerlaw.Fit(chains)
             # print(results.power_law.alpha)
             # print(results.power_law.xmin)
-            R, p = results.distribution_compare('power_law', 'lognormal')
-            text = self.font.render("chains: " + str(freq), False, self.BLUE)
+            #R, p = results.distribution_compare('power_law', 'lognormal')
+            text = self.font.render("chains: " + str(sim.chain_lengths), False, self.BLUE)
             self.screen.blit(text, (10, y + 2 * self.fontsize))
-            #text = self.font.render("Ratio: " + str(R) + " P-value: " + str(p), False, self.BLUE)
-            #self.screen.blit(text, (10, y + 3 * self.fontsize))
+            # text = self.font.render("Ratio: " + str(R) + " P-value: " + str(p), False, self.BLUE)
+            # self.screen.blit(text, (10, y + 3 * self.fontsize))
             # Other info
             if self.binding:
                 pygame.draw.line(screen, self.BLACK,
@@ -855,7 +919,7 @@ class HChemViewer:
 
 class ChemMDP(MDP):
     def __init__(self, terminals, state, rules_file, gamma=.9):
-        MDP.__init__(self, state , actlist=chem_actions,
+        MDP.__init__(self, state, actlist=chem_actions,
                      terminals=terminals, gamma=gamma)
         self.rules = HChemRule(rules_file)
         self.reward = -0.04
@@ -892,19 +956,119 @@ class ChemMDP(MDP):
         sim.save(state1, "particles")
         return state1
 
-if __name__ == '__main__':
 
-    '''elif len(sys.argv) == 3:
-            sim = HChem(sys.argv[1], sys.argv[2])'''
-    #HChemViewer(HChem(HChemRule(sys.argv[1]), sys.argv[2])).loop(5)
-    if len(sys.argv) == 3:
-        chemMDP_env = ChemMDP([0.05], sys.argv[2], sys.argv[1])  # TODO: Definir nodo terminal # el nodo terminal es que el p value sea menor a 0.05 para aceptarlo
+class ParticleMDP(MDP):
+    '''gets an state from the particle and calculates the T transaction, the terminal node is when the statistics
+    distribution of power law gets the p value < 0.05'''
+
+
+    def __init__(self, simulator, my_index=None, its_index = None, gamma=.9):
+
+        self.sim = simulator
+        self.index = my_index
+        self.other_index = its_index
+        self.default_reward = -0.04
+        self.terminal = 10.0
+        MDP.__init__(self, -0.04, actlist=particle_actions,
+                     terminals=[self.terminal], gamma=gamma)
+        self.main_states = ['single', 'double']
+
+
+
+
+
+
+    def R(self, state):
+        """"Return a numeric reward for this state."""
+        sim = self.sim
+        if sim.R > 0 and 0.05 > sim.p > 0.0:
+            return self.terminal
+        else:
+            self.reward[state] = self.reward[state]-self.default_reward + sim.p
+            return self.reward[state]
+
+    def T(self, state, action):
+        # else:
+        #     costs = []
+        #     for act in particle_actions:
+        #         if act != action:
+        #             costs.append((0.1, self.default_reward))
+        #     costs.append((0.7, self.go(state, action)))
+        return [(0.7, self.go(state, action))]
+
+    def go(self, state, action):
+        """Return the state that results from going in this action."""
+        action(self.sim, self.index, self.other_index) # no se sabe en reward hasta la siguiente iteracion
+        return self.default_reward + self.R(state)
+
+class ParticleTypeMDP(MDP):
+    '''gets an state from the particle and calculates the T transaction, the terminal node is when the statistics
+    distribution of power law gets the p value < 0.05'''
+
+
+    def __init__(self, simulator, my_index, gamma=.9):
+
+        self.sim = simulator
+        self.index = my_index
+        self.default_reward = -0.04
+        self.terminal = 10.0
+        self.last_state = None
+        self.action_reward = {}
+        self.other_index = None
+
+        MDP.__init__(self, -0.04, actlist=particle_actions,
+                     terminals=[self.terminal], gamma=gamma)
+
+        self.reward[self.last_state] = self.default_reward
+        for action in particle_actions:
+            self.action_reward[action] = self.default_reward
+
+
+    def R(self, state):
+        """"Return a numeric reward for this state."""
+        sim = self.sim
+        if sim.R > 0 and 0.05 > sim.p > 0.0:
+            self.last_state = state
+            return self.terminal
+        else:
+            if state not in self.reward.keys():
+                self.reward[state] = 0.0
+            self.reward[self.last_state] = self.reward[self.last_state] + sim.p
+            self.reward[state] += 0.4 * self.reward[self.last_state]
+            return self.reward[state]
+
+    def T(self, state, action):
+        # else:
+        #     costs = []
+        #     for act in particle_actions:
+        #         if act != action:
+        #             costs.append((0.1, self.default_reward))
+        #     costs.append((0.7, self.go(state, action)))
+        cost = []
+        for act in particle_actions:
+            if act != action:
+                cost.append((0.1,self.action_reward[act]))
+        self.action_reward[action] = self.go(state,action)
+        cost.append((0.8, self.action_reward[action]))
+        return cost
+
+    def go(self, state, action):
+        """Return the state that results from going in this action."""
+        action(self.sim, self.index, self.other_index) # no se sabe en reward hasta la siguiente iteracion
+        return self.terminal
+
+if __name__ == '__main__':
+    if len(sys.argv) == 2:
+        sim = HChem(sys.argv[1])
+    elif len(sys.argv) == 3:
+        sim = HChem(sys.argv[1], sys.argv[2])
+
     else:
         print("Usage: python", sys.argv[0], "<rules_filename> [optional: particles_filename]")
         exit()
 
-    #HChemViewer(sim2).loop(10)
-    q_agent = QLearningAgent(chemMDP_env, Ne=5, Rplus=2,
-                             alpha=lambda n: 60. / (59 + n))  # TODO: Definir los parametros de esta funcion
-    for i in range(200):
-        run_single_trial(q_agent, chemMDP_env)
+    HChemViewer(sim).loop(1000)
+    # q_agent = QLearningAgent(chemMDP_env, Ne=5, Rplus=2,
+    #                          alpha=lambda n: 60. / (59 + n))  # TODO: Definir los parametros de esta funcion
+    # for i in range(200):
+    #     run_single_trial(q_agent, chemMDP_env)

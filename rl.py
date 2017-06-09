@@ -124,6 +124,7 @@ class QLearningAgent:
         self.s = None
         self.a = None
         self.r = None
+        self.mdp = mdp
 
         if alpha:
             self.alpha = alpha
@@ -184,7 +185,8 @@ def run_single_trial(agent_program, mdp):
         '''
         x = random.uniform(0, 1)
         cumulative_probability = 0.0
-        for probability_state in mdp.T(s, a):
+        t = mdp.T(s, a)
+        for probability_state in t:
             probability, state = probability_state
             cumulative_probability += probability
             if x < cumulative_probability:
